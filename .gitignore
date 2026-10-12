@@ -7,3 +7,7 @@ node_modules/
 .next/
 server.log
 .cursor/
+
+# Keep the public README. Other notes stay local.
+*.md
+!/README.md
