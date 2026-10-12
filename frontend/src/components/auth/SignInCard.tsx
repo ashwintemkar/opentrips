@@ -31,7 +31,7 @@ export function SignInCard({ redirectTo, errorMessage }: SignInCardProps) {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: "https://opentrips.ashwintemkar.com/auth/callback",
       },
     });
     if (error) setMessage(error.message);

@@ -39,7 +39,7 @@ interface PendingTrip {
 
 function goToSignIn(pending: PendingTrip) {
   sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending));
-  window.location.href = "/sign-in?next=/";
+  window.location.href = "/sign-in";
 }
 
 async function postJson<TResponse>(url: string, body: unknown, pending?: PendingTrip): Promise<TResponse> {
