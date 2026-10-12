@@ -169,7 +169,7 @@ export function ItineraryCard({ plan, delay = 0 }: { plan: PlanResponse; delay?:
       <button
         type="button"
         onClick={() => downloadPlan(plan)}
-        className="mt-4 text-sm font-medium text-[#1d4a32] underline"
+        className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-[#1d4a32] px-5 py-3 text-sm font-semibold text-white"
       >
         Download this plan
       </button>

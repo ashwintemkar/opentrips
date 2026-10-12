@@ -109,6 +109,11 @@ export function TripPlannerForm() {
   }, []);
 
   async function ensureSignedIn(pending: PendingTrip): Promise<boolean> {
+    const providers = await fetch("/api/auth/providers").then(
+      (response) => response.json() as Promise<Record<string, unknown>>,
+    );
+    if (!providers.google) return true;
+
     const session = await fetch("/api/auth/session").then(
       (response) => response.json() as Promise<{ user?: { email?: string } }>,
     );

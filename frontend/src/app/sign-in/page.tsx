@@ -8,7 +8,7 @@ import { SignInCard } from "@/components/auth/SignInCard";
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 const errorMessages: Record<string, string> = {
-  Configuration: "Google sign-in is not configured yet. Check the Google credentials in .env.local.",
+  Configuration: "Google sign-in is not set on this server yet. You can still go back and generate a plan.",
   AccessDenied: "Access was denied. Please try another Google account.",
 };
 
