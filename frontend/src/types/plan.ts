@@ -34,6 +34,11 @@ export interface PlanDay {
 export interface BudgetEstimate {
   currency: "INR";
   total: number;
+  breakdown?: {
+    food: number;
+    localTravel: number;
+    misc: number;
+  };
 }
 
 export interface PlanResponse {

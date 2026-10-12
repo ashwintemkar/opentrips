@@ -68,6 +68,21 @@ async function postJson<TResponse>(baseUrl: string, path: string, body: unknown)
   );
 }
 
+/** Rough 2026 rates for one person on an outdoor day in India. Not hotel prices. */
+function rateBudget(days: PlanDay[]): BudgetEstimate {
+  const food = 500 * days.length;
+  const localTravel = days.reduce(
+    (sum, day) => sum + Math.max(200, Math.round((day.distanceKm || 0) * 25)),
+    0,
+  );
+  const misc = 300 * days.length;
+  return {
+    currency: "INR",
+    total: food + localTravel + misc,
+    breakdown: { food, localTravel, misc },
+  };
+}
+
 function toVerdict(verdict: "go" | "caution" | "wait"): RiskVerdict {
   return verdict.toUpperCase() as RiskVerdict;
 }
@@ -155,7 +170,7 @@ async function fetchRealPlan(baseUrl: string, request: PlanRequest): Promise<Pla
     days,
     packing: backend.packing ?? [],
     warnings: backend.warnings ?? [],
-    budgetEstimate: { currency: "INR", total: backend.budget_estimate ?? 0 },
+    budgetEstimate: rateBudget(days),
     checksPassed: backend.checks_passed ?? false,
     isMockData: false,
     disclaimer:

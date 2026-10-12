@@ -203,14 +203,24 @@ export function ItineraryCard({
         </div>
       )}
 
-      <div className="mt-4 flex items-center justify-between rounded-2xl bg-white px-4 py-4 ring-1 ring-black/5 dark:bg-zinc-950 dark:ring-white/10">
-        <span className="flex items-center gap-2 font-medium text-[#163226] dark:text-zinc-100">
-          <Wallet className="h-4 w-4" aria-hidden="true" />
-          Estimated budget
-        </span>
-        <span className="text-lg font-semibold text-[#163226] dark:text-zinc-50">
-          {plan.budgetEstimate.currency} {plan.budgetEstimate.total.toLocaleString("en-IN")}
-        </span>
+      <div className="mt-4 rounded-2xl bg-white px-4 py-4 ring-1 ring-black/5 dark:bg-zinc-950 dark:ring-white/10">
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-2 font-medium text-[#163226] dark:text-zinc-100">
+            <Wallet className="h-4 w-4" aria-hidden="true" />
+            Estimated budget
+          </span>
+          <span className="text-lg font-semibold text-[#163226] dark:text-zinc-50">
+            {plan.budgetEstimate.currency} {plan.budgetEstimate.total.toLocaleString("en-IN")}
+          </span>
+        </div>
+        {plan.budgetEstimate.breakdown && (
+          <p className="mt-2 text-xs leading-5 text-zinc-500">
+            Food {plan.budgetEstimate.breakdown.food.toLocaleString("en-IN")} · local travel{" "}
+            {plan.budgetEstimate.breakdown.localTravel.toLocaleString("en-IN")} · entry and misc{" "}
+            {plan.budgetEstimate.breakdown.misc.toLocaleString("en-IN")}. About ₹500 food, ₹25 per km
+            (at least ₹200 a day), and ₹300 entry a day, for one person.
+          </p>
+        )}
       </div>
 
       <button
