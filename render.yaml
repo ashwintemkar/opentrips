@@ -27,7 +27,9 @@ services:
     rootDir: frontend
     # prisma generate runs via postinstall. db:push only if DATABASE_URL is set,
     # so a first deploy without Supabase wired yet still builds.
-    buildCommand: corepack enable && pnpm install && if [ -n "$DATABASE_URL" ]; then pnpm db:push; fi && pnpm build
+    # Do not run prisma db push here. The transaction pooler (port 6543)
+    # hangs on schema changes. Push the schema once with the direct database URL.
+    buildCommand: corepack enable && pnpm install && pnpm build
     startCommand: pnpm start
     envVars:
       - key: NODE_VERSION
