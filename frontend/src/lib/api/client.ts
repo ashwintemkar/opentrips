@@ -46,24 +46,43 @@ interface BackendPlanResponse {
 }
 
 async function postJson<TResponse>(baseUrl: string, path: string, body: unknown): Promise<TResponse> {
+  const deadline = Date.now() + 75_000;
   let status = 0;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const response = await fetch(`${baseUrl}${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (response.ok) {
-      return (await response.json()) as TResponse;
+  let attempt = 0;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(`${baseUrl}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(Math.min(55_000, Math.max(deadline - Date.now(), 1))),
+      });
+      if (response.ok) {
+        return (await response.json()) as TResponse;
+      }
+      status = response.status;
+      const details = (await response.text()).slice(0, 240);
+      if (details.includes("failed to start")) {
+        throw new Error(`The model server is up, but the model did not start. ${details}`);
+      }
+      if (status !== 502 && status !== 503) {
+        throw new Error(
+          details
+            ? `AI backend request to ${path} failed with status ${status}: ${details}`
+            : `AI backend request to ${path} failed with status ${status}`,
+        );
+      }
+    } catch {
+      status = 502;
     }
-    status = response.status;
-    const waking = status === 502 || status === 503;
-    if (!waking || attempt === 2) break;
-    await new Promise((resolve) => setTimeout(resolve, 5000));
+    attempt += 1;
+    const gap = Math.min(2000 + attempt * 1500, 8000);
+    if (Date.now() + gap >= deadline) break;
+    await new Promise((resolve) => setTimeout(resolve, gap));
   }
   throw new Error(
     status === 502 || status === 503
-      ? `The model service is waking up. Wait half a minute and try again. (${path} returned ${status})`
+      ? `The model server was asleep and did not finish waking. Stay on this page and press the button once more. (${path} returned ${status})`
       : `AI backend request to ${path} failed with status ${status}`,
   );
 }

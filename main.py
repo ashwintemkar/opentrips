@@ -4,12 +4,14 @@ fine-tuned trip planner). This is the contract Kiran's Next.js app calls.
 import json
 import os
 import re
+import threading
 
 import pandas as pd
 import requests
 import tinker
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from tabpfn_client import TabPFNClassifier
 from tinker import types
@@ -21,22 +23,42 @@ load_dotenv()
 
 app = FastAPI(title="OpenTrips API")
 
-# --- TabPFN risk model, trained once at startup -----------------------
+# Models load on the first request. Import-time setup kept the process from
+# listening, so Render's health check failed and every call came back 502.
 FEATURES = ["rain_1d", "rain_3d", "rain_7d", "rain_14d", "lat", "lon"]
-_df = pd.read_csv("landslide_dataset.csv")
-_tabpfn = TabPFNClassifier()
-_tabpfn.fit(_df[FEATURES].fillna(0), _df["label"])
-# Paste the GEO-split accuracy from train_tabpfn.py's output here.
 MODEL_ACCURACY = float(os.environ.get("MODEL_ACCURACY", "0.0"))
-
-# --- Tinker sampling client for the fine-tuned plan model --------------
 _BASE_MODEL = "Qwen/Qwen3-8B"
 _CHECKPOINT_PATH = os.environ.get("PLAN_CHECKPOINT_PATH", "")
-_service = tinker.ServiceClient()
-_tokenizer = _service.create_lora_training_client(base_model=_BASE_MODEL, rank=16).get_tokenizer()
+_lock = threading.Lock()
+_tabpfn = None
+_service = None
+_tokenizer = None
 _sampling_client = None
-if _CHECKPOINT_PATH:
-    _sampling_client = _service.create_sampling_client(model_path=_CHECKPOINT_PATH)
+
+
+def ensure_risk_model():
+    global _tabpfn
+    if _tabpfn is not None:
+        return
+    with _lock:
+        if _tabpfn is not None:
+            return
+        frame = pd.read_csv("landslide_dataset.csv")
+        model = TabPFNClassifier()
+        model.fit(frame[FEATURES].fillna(0), frame["label"])
+        _tabpfn = model
+
+
+def ensure_plan_model():
+    global _service, _tokenizer, _sampling_client
+    if _sampling_client is not None or not _CHECKPOINT_PATH:
+        return
+    with _lock:
+        if _sampling_client is not None:
+            return
+        _service = tinker.ServiceClient()
+        _tokenizer = _service.create_lora_training_client(base_model=_BASE_MODEL, rank=16).get_tokenizer()
+        _sampling_client = _service.create_sampling_client(model_path=_CHECKPOINT_PATH)
 
 
 class RiskReq(BaseModel):
@@ -48,6 +70,10 @@ class RiskReq(BaseModel):
 
 @app.post("/risk")
 def risk(req: RiskReq):
+    try:
+        ensure_risk_model()
+    except Exception as exc:
+        return JSONResponse(status_code=503, content={"error": f"Risk model failed to start: {exc}"})
     try:
         r = requests.get(
             "https://api.open-meteo.com/v1/forecast",
@@ -166,7 +192,11 @@ def _loads_plan(raw_text: str):
 
 @app.post("/plan")
 async def plan(req: PlanReq):
-    if _sampling_client is None:
+    try:
+        ensure_plan_model()
+    except Exception as exc:
+        return {"error": f"Plan model failed to start: {exc}"}
+    if _sampling_client is None or _tokenizer is None:
         return {"error": "PLAN_CHECKPOINT_PATH not set yet, run train_plan_model.py first"}
     prompt_tokens = _tokenizer.encode(wrap_prompt(req.request_text))
     parsed = None
