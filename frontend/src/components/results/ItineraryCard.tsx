@@ -10,29 +10,67 @@ import { DisclaimerText } from "@/components/ui/DisclaimerText";
 import { MockDataBadge } from "@/components/ui/MockDataBadge";
 import { StaggerItem } from "@/components/ui/StaggerItem";
 import type { PlanDay, PlanResponse } from "@/types/plan";
+import type { RiskResponse } from "@/types/risk";
 
 const ICON_CLASSNAME = "mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400";
 
-function downloadPlan(plan: PlanResponse) {
-  const lines = [
-    `OpenTrips plan for ${plan.destination}`,
-    `${plan.startDate} to ${plan.endDate}`,
-    "",
-    ...plan.days.map((day) => `Day ${day.day} (${day.date}): ${day.activity} (${day.distanceKm} km)`),
-    "",
-    "Packing:",
-    ...plan.packing.map((item) => `- ${item}`),
-    "",
-    "Warnings:",
-    ...plan.warnings.map((item) => `- ${item}`),
-    "",
-    `Budget: ${plan.budgetEstimate.currency} ${plan.budgetEstimate.total}`,
-  ];
-  const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function downloadPlan(plan: PlanResponse, risk?: RiskResponse) {
+  const days = plan.days
+    .map(
+      (day) =>
+        `<li><strong>Day ${day.day}, ${escapeHtml(day.date)}</strong><br>${escapeHtml(day.activity)} (${day.distanceKm} km)</li>`,
+    )
+    .join("");
+  const packing = plan.packing.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+  const warnings = plan.warnings.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+  const riskBlock = risk
+    ? `<h2>Landslide risk in ${escapeHtml(risk.destination)}</h2>
+       <p><strong>${escapeHtml(risk.verdict)}</strong> · score ${Math.round(risk.riskScore * 100)} out of 100 · accuracy ${risk.modelMetrics.accuracy ?? "n/a"}</p>
+       <p>${escapeHtml(risk.explanation)}</p>`
+    : "";
+  const fromBlock = plan.fromPlace ? `<p>From ${escapeHtml(plan.fromPlace)}</p>` : "";
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>OpenTrips plan for ${escapeHtml(plan.destination)}</title>
+  <style>
+    body { font-family: Georgia, serif; background: #f6f3ee; color: #163226; margin: 0; padding: 32px; }
+    main { max-width: 720px; margin: 0 auto; background: #f7f4ef; padding: 28px; border-radius: 24px; }
+    h1 { margin-top: 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <p>OpenTrips</p>
+    <h1>${escapeHtml(plan.destination)}</h1>
+    ${fromBlock}
+    <p>${escapeHtml(plan.startDate)} to ${escapeHtml(plan.endDate)}</p>
+    ${riskBlock}
+    <h2>Itinerary</h2>
+    <ul>${days}</ul>
+    <h2>Packing</h2>
+    <ul>${packing}</ul>
+    <h2>Warnings</h2>
+    <ul>${warnings}</ul>
+    <h2>Estimated budget</h2>
+    <p>${escapeHtml(plan.budgetEstimate.currency)} ${plan.budgetEstimate.total}</p>
+    <p>${escapeHtml(plan.disclaimer)}</p>
+  </main>
+</body>
+</html>`;
+  const blob = new Blob([html], { type: "text/html" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `opentrips-${plan.destination}.txt`;
+  link.download = `opentrips-${plan.destination}.html`;
   link.click();
   URL.revokeObjectURL(url);
 }
@@ -86,7 +124,15 @@ function DayRow({ day, index, baseDelay }: { day: PlanDay; index: number; baseDe
   );
 }
 
-export function ItineraryCard({ plan, delay = 0 }: { plan: PlanResponse; delay?: number }) {
+export function ItineraryCard({
+  plan,
+  risk,
+  delay = 0,
+}: {
+  plan: PlanResponse;
+  risk?: RiskResponse;
+  delay?: number;
+}) {
   return (
     <Card delay={delay}>
       <CardHeader
@@ -94,6 +140,7 @@ export function ItineraryCard({ plan, delay = 0 }: { plan: PlanResponse; delay?:
         badge={plan.isMockData ? <MockDataBadge label="Demo content" /> : undefined}
       />
       <p className="mt-1 text-sm text-zinc-500">
+        {plan.fromPlace ? `From ${plan.fromPlace} · ` : ""}
         {plan.startDate} to {plan.endDate}
       </p>
 
@@ -168,10 +215,10 @@ export function ItineraryCard({ plan, delay = 0 }: { plan: PlanResponse; delay?:
 
       <button
         type="button"
-        onClick={() => downloadPlan(plan)}
+        onClick={() => downloadPlan(plan, risk)}
         className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-[#1d4a32] px-5 py-3 text-sm font-semibold text-white"
       >
-        Download this plan
+        Download this page
       </button>
       <p className="mt-2 text-xs leading-5 text-zinc-500">
         We keep only your last 3 plans on the server. This is an open source hackathon project, not a

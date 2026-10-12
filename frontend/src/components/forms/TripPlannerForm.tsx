@@ -32,6 +32,7 @@ const PENDING_KEY = "opentrips:pending-trip";
 
 interface PendingTrip {
   place: string;
+  fromPlace: string;
   startDate: string;
   endDate: string;
   constraints: string;
@@ -67,6 +68,7 @@ async function postJson<TResponse>(url: string, body: unknown, pending?: Pending
 export function TripPlannerForm() {
   const router = useRouter();
   const [place, setPlace] = useState("");
+  const [fromPlace, setFromPlace] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [constraints, setConstraints] = useState("");
@@ -83,6 +85,7 @@ export function TripPlannerForm() {
     const pending = JSON.parse(raw) as PendingTrip;
     sessionStorage.removeItem(PENDING_KEY);
     setPlace(pending.place);
+    setFromPlace(pending.fromPlace ?? "");
     setStartDate(pending.startDate);
     setEndDate(pending.endDate);
     setConstraints(pending.constraints);
@@ -130,8 +133,9 @@ export function TripPlannerForm() {
           longitude: location.longitude,
           startDate: pending.startDate,
           endDate: pending.endDate,
-          constraints: pending.constraints,
-          riskVerdict: risk.verdict,
+        constraints: pending.constraints,
+        fromPlace: pending.fromPlace,
+        riskVerdict: risk.verdict,
           riskScore: risk.riskScore,
         },
         pending,
@@ -181,11 +185,23 @@ export function TripPlannerForm() {
       return;
     }
 
-    await runPlan({ place, startDate, endDate, constraints });
+    await runPlan({ place, fromPlace, startDate, endDate, constraints });
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+      <FormField label="From (optional)" htmlFor="fromPlace" hint="Where you are starting, if you want the plan to account for it.">
+        <TextInput
+          id="fromPlace"
+          name="fromPlace"
+          type="text"
+          icon={<MapPin className="h-4 w-4" aria-hidden="true" />}
+          value={fromPlace}
+          onChange={(event) => setFromPlace(event.target.value)}
+          placeholder="Pune"
+        />
+      </FormField>
+
       <FormField label="Destination" htmlFor="place">
         <TextInput
           id="place"

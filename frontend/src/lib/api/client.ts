@@ -113,7 +113,8 @@ async function fetchRealRisk(baseUrl: string, request: RiskRequest): Promise<Ris
 
 async function fetchRealPlan(baseUrl: string, request: PlanRequest): Promise<PlanResponse> {
   const constraintsText = request.constraints?.trim() || "no specific constraints stated";
-  const requestText = `Trip to ${request.place} from ${request.startDate} to ${request.endDate}. ${constraintsText}.`;
+  const fromText = request.fromPlace?.trim() ? ` Starting from ${request.fromPlace.trim()}.` : "";
+  const requestText = `Trip to ${request.place} from ${request.startDate} to ${request.endDate}.${fromText} ${constraintsText}.`;
 
   const backend = await postJson<BackendPlanResponse>(baseUrl, "/plan", {
     request_text: requestText,
@@ -139,6 +140,7 @@ async function fetchRealPlan(baseUrl: string, request: PlanRequest): Promise<Pla
 
   return {
     destination: request.place,
+    fromPlace: request.fromPlace?.trim() || undefined,
     startDate: request.startDate,
     endDate: request.endDate,
     days,

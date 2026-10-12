@@ -40,7 +40,7 @@ export default function ResultsPage() {
           delay={0.2}
         />
       )}
-      <ItineraryCard plan={result.plan} delay={0.3} />
+      <ItineraryCard plan={result.plan} risk={result.risk} delay={0.3} />
       <p className="text-center">
         <Link href="/" className="text-sm font-medium text-[#1d4a32] underline">
           Plan another trip

@@ -17,6 +17,7 @@ export interface PlanRequest {
   startDate: string;
   endDate: string;
   constraints?: string;
+  fromPlace?: string;
   /** Optional context from a prior /api/risk call, if available. */
   riskVerdict?: RiskVerdict;
   riskScore?: number;
@@ -37,6 +38,7 @@ export interface BudgetEstimate {
 
 export interface PlanResponse {
   destination: string;
+  fromPlace?: string;
   startDate: string;
   endDate: string;
   days: PlanDay[];

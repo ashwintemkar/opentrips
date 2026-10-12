@@ -65,7 +65,7 @@ async function SavedPlan({ params }: { params: Promise<{ id: string }> }) {
         startDate={trip.startDate}
         endDate={trip.endDate}
       />
-      <ItineraryCard plan={plan} delay={0.25} />
+      <ItineraryCard plan={plan} risk={risk} delay={0.25} />
       <p className="text-center">
         <Link href="/" className="text-sm font-medium text-[#1d4a32] underline">
           Plan another trip
