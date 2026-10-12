@@ -1,7 +1,7 @@
 import { getAiBackendConfig, MissingBackendConfigError } from "@/config/env";
 import { generateMockPlanResponse } from "@/lib/api/mock-plan";
 import { generateMockRiskResponse } from "@/lib/api/mock-risk";
-import type { PlanDay, PlanRequest, PlanResponse } from "@/types/plan";
+import type { BudgetEstimate, PlanDay, PlanRequest, PlanResponse } from "@/types/plan";
 import type { RiskRequest, RiskResponse, RiskVerdict } from "@/types/risk";
 
 /**
