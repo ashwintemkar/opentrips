@@ -28,11 +28,10 @@ export function SignInCard({ redirectTo, errorMessage }: SignInCardProps) {
       return;
     }
     const supabase = createSupabaseBrowserClient();
-    const next = redirectTo.startsWith("/") && !redirectTo.startsWith("//") ? redirectTo : "/";
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
     if (error) setMessage(error.message);
