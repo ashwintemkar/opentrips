@@ -2,11 +2,16 @@ import { NextResponse } from "next/server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+const PUBLIC_SITE = "https://opentrips.ashwintemkar.com";
+
 function resolveBaseUrl(request: Request, origin: string) {
   const forwardedHost = request.headers.get("x-forwarded-host");
-  if (!forwardedHost) return origin;
   const forwardedProto = request.headers.get("x-forwarded-proto") ?? "https";
-  return `${forwardedProto}://${forwardedHost}`;
+  const fromProxy = forwardedHost ? `${forwardedProto}://${forwardedHost}` : origin;
+  if (fromProxy.includes("localhost") || fromProxy.includes("127.0.0.1")) {
+    return PUBLIC_SITE;
+  }
+  return fromProxy;
 }
 
 export async function GET(request: Request) {
