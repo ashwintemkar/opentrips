@@ -46,17 +46,26 @@ interface BackendPlanResponse {
 }
 
 async function postJson<TResponse>(baseUrl: string, path: string, body: unknown): Promise<TResponse> {
-  const response = await fetch(`${baseUrl}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    throw new Error(`AI backend request to ${path} failed with status ${response.status}`);
+  let status = 0;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const response = await fetch(`${baseUrl}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (response.ok) {
+      return (await response.json()) as TResponse;
+    }
+    status = response.status;
+    const waking = status === 502 || status === 503;
+    if (!waking || attempt === 2) break;
+    await new Promise((resolve) => setTimeout(resolve, 5000));
   }
-
-  return (await response.json()) as TResponse;
+  throw new Error(
+    status === 502 || status === 503
+      ? `The model service is waking up. Wait half a minute and try again. (${path} returned ${status})`
+      : `AI backend request to ${path} failed with status ${status}`,
+  );
 }
 
 function toVerdict(verdict: "go" | "caution" | "wait"): RiskVerdict {
