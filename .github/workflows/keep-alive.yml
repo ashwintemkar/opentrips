@@ -1,0 +1,16 @@
+name: Keep the model server awake
+
+on:
+  schedule:
+    # Render free web services sleep after 15 minutes with no requests.
+    # Every 10 minutes stays inside that window if GitHub starts a little late.
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping the API health check
+        run: curl -fsS --retry 4 --retry-all-errors --retry-delay 15 --max-time 90 https://opentrips-api.onrender.com/healthz
