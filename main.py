@@ -124,25 +124,68 @@ class PlanReq(BaseModel):
     risk: float
 
 
+def _loads_plan(raw_text: str):
+    """The fine-tune usually emits one JSON object. Sometimes it adds a
+    trailing comma or names the list itinerary. Try those before giving up.
+    """
+    json_text = extract_first_json(raw_text)
+    for candidate in (json_text, re.sub(r",\s*([}\]])", r"\1", json_text)):
+        try:
+            parsed = json.loads(candidate)
+            break
+        except json.JSONDecodeError:
+            parsed = None
+    if parsed is None:
+        return None
+    if isinstance(parsed, list):
+        parsed = {"days": parsed}
+    days = parsed.get("days") or parsed.get("itinerary") or []
+    normalized = []
+    for index, day in enumerate(days, start=1):
+        if isinstance(day, str):
+            normalized.append({"day": index, "activity": day, "distance_km": 0})
+            continue
+        if not isinstance(day, dict):
+            continue
+        activity = day.get("activity") or day.get("summary") or day.get("name")
+        if not activity:
+            continue
+        distance = day.get("distance_km", day.get("distanceKm", 0)) or 0
+        normalized.append({
+            "day": day.get("day", index),
+            "activity": activity,
+            "distance_km": distance,
+        })
+    if not normalized:
+        return None
+    parsed["days"] = normalized
+    parsed["packing"] = parsed.get("packing") or parsed.get("packingChecklist") or []
+    parsed["warnings"] = parsed.get("warnings") or parsed.get("safetyNotes") or []
+    return parsed
+
+
 @app.post("/plan")
 async def plan(req: PlanReq):
     if _sampling_client is None:
         return {"error": "PLAN_CHECKPOINT_PATH not set yet, run train_plan_model.py first"}
     prompt_tokens = _tokenizer.encode(wrap_prompt(req.request_text))
-    result = await _sampling_client.sample_async(
-        prompt=types.ModelInput.from_ints(prompt_tokens),
-        num_samples=1,
-        sampling_params=types.SamplingParams(max_tokens=400, temperature=0.3),
-    )
-    raw_text = _tokenizer.decode(result.sequences[0].tokens, skip_special_tokens=True)
-    json_text = extract_first_json(raw_text)
-    try:
-        parsed = json.loads(json_text)
-    except json.JSONDecodeError:
-        return {"raw": raw_text, "parse_error": True}
+    parsed = None
+    for _ in range(3):
+        result = await _sampling_client.sample_async(
+            prompt=types.ModelInput.from_ints(prompt_tokens),
+            num_samples=1,
+            sampling_params=types.SamplingParams(max_tokens=400, temperature=0.3),
+        )
+        raw_text = _tokenizer.decode(result.sequences[0].tokens, skip_special_tokens=True)
+        parsed = _loads_plan(raw_text)
+        if parsed is not None:
+            break
+    if parsed is None:
+        return {"parse_error": True}
 
+    plan_text = json.dumps(parsed)
     max_budget, max_distance_km = extract_check_limits(req.request_text)
-    check = check_plan(json_text, max_budget, max_distance_km)
+    check = check_plan(plan_text, max_budget, max_distance_km)
     parsed["checks_passed"] = check["passed"]
     parsed["checks"] = check
     return parsed
