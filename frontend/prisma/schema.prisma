@@ -11,6 +11,15 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  image     String?
+  trips     Trip[]
+  createdAt DateTime @default(now())
+}
+
 model Trip {
   id          String   @id @default(cuid())
   place       String
@@ -24,4 +33,6 @@ model Trip {
   /// Full PlanResponse JSON, exactly what was shown to the user.
   planJson    Json
   createdAt   DateTime @default(now())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
 }

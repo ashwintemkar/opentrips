@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import type { ApiErrorResponse } from "@/types/api";
 import type { PlanResponse } from "@/types/plan";
@@ -70,6 +71,23 @@ export async function POST(request: Request) {
   }
 
   try {
+    const session = await auth();
+    const email = session?.user?.email;
+    const user = email
+      ? await prisma.user.upsert({
+          where: { email },
+          update: {
+            name: session.user?.name ?? null,
+            image: session.user?.image ?? null,
+          },
+          create: {
+            email,
+            name: session.user?.name ?? null,
+            image: session.user?.image ?? null,
+          },
+        })
+      : null;
+
     const trip = await prisma.trip.create({
       data: {
         place: body.place,
@@ -80,6 +98,7 @@ export async function POST(request: Request) {
         constraints: body.constraints ?? null,
         riskJson: body.risk as object,
         planJson: body.plan as object,
+        userId: user?.id ?? null,
       },
     });
 
