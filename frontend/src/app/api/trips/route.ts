@@ -102,6 +102,20 @@ export async function POST(request: Request) {
       },
     });
 
+    if (user) {
+      const older = await prisma.trip.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: "desc" },
+        skip: 3,
+        select: { id: true },
+      });
+      if (older.length > 0) {
+        await prisma.trip.deleteMany({
+          where: { id: { in: older.map((row) => row.id) } },
+        });
+      }
+    }
+
     return NextResponse.json({ id: trip.id });
   } catch {
     return NextResponse.json<ApiErrorResponse>(

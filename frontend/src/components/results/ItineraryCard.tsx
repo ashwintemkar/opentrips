@@ -13,6 +13,30 @@ import type { PlanDay, PlanResponse } from "@/types/plan";
 
 const ICON_CLASSNAME = "mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400";
 
+function downloadPlan(plan: PlanResponse) {
+  const lines = [
+    `OpenTrips plan for ${plan.destination}`,
+    `${plan.startDate} to ${plan.endDate}`,
+    "",
+    ...plan.days.map((day) => `Day ${day.day} (${day.date}): ${day.activity} (${day.distanceKm} km)`),
+    "",
+    "Packing:",
+    ...plan.packing.map((item) => `- ${item}`),
+    "",
+    "Warnings:",
+    ...plan.warnings.map((item) => `- ${item}`),
+    "",
+    `Budget: ${plan.budgetEstimate.currency} ${plan.budgetEstimate.total}`,
+  ];
+  const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `opentrips-${plan.destination}.txt`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 /**
  * Returns the icon element directly rather than a component reference, so
  * no component type gets created during render (react-hooks/static-components).
@@ -141,6 +165,18 @@ export function ItineraryCard({ plan, delay = 0 }: { plan: PlanResponse; delay?:
           {plan.budgetEstimate.currency} {plan.budgetEstimate.total.toLocaleString("en-IN")}
         </span>
       </div>
+
+      <button
+        type="button"
+        onClick={() => downloadPlan(plan)}
+        className="mt-4 text-sm font-medium text-[#1d4a32] underline"
+      >
+        Download this plan
+      </button>
+      <p className="mt-2 text-xs leading-5 text-zinc-500">
+        We keep only your last 3 plans on the server. This is an open source hackathon project, not a
+        commercial app. Download a copy if you want to keep this one.
+      </p>
 
       <DisclaimerText>{plan.disclaimer}</DisclaimerText>
     </Card>

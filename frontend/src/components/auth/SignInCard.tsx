@@ -97,7 +97,10 @@ export function SignInCard({ redirectTo, errorMessage }: SignInCardProps) {
       </ul>
 
       <p className="mt-8 text-xs leading-5 text-zinc-500 dark:text-zinc-500">
-        We only use your Google name, email, and profile photo to personalize your trips.
+        OpenTrips is an open source project for the Hacktoberfest challenge. It is not a commercial
+        app, and we do not sell data. Signing in stores your Google name, email, and profile photo
+        only so a plan can be tied to you. We keep your last 3 plans. Download a plan if you want
+        to keep it, because older ones are deleted. The challenge is open to people 18 and older.
       </p>
     </Card>
   );
