@@ -53,8 +53,9 @@ export async function POST(request: Request) {
       );
     }
 
+    const details = error instanceof Error ? error.message : undefined;
     return NextResponse.json<ApiErrorResponse>(
-      { error: "Failed to generate plan." },
+      { error: "Failed to generate plan.", details },
       { status: 502 },
     );
   }

@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, CalendarDays, MapPin, NotebookText } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { FormField } from "@/components/ui/FormField";
@@ -25,6 +25,15 @@ const stageLabels: Record<SubmitStage, string> = {
 
 interface SaveTripApiResult {
   id: string;
+}
+
+const PENDING_KEY = "opentrips:pending-trip";
+
+interface PendingTrip {
+  place: string;
+  startDate: string;
+  endDate: string;
+  constraints: string;
 }
 
 async function postJson<TResponse>(url: string, body: unknown): Promise<TResponse> {
@@ -53,6 +62,88 @@ export function TripPlannerForm() {
   const [stage, setStage] = useState<SubmitStage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const isSubmitting = stage !== null;
+  const resumeStarted = useRef(false);
+
+  useEffect(() => {
+    if (resumeStarted.current) return;
+    const raw = sessionStorage.getItem(PENDING_KEY);
+    if (!raw) return;
+    resumeStarted.current = true;
+    const pending = JSON.parse(raw) as PendingTrip;
+    sessionStorage.removeItem(PENDING_KEY);
+    setPlace(pending.place);
+    setStartDate(pending.startDate);
+    setEndDate(pending.endDate);
+    setConstraints(pending.constraints);
+    void runPlan(pending);
+  }, []);
+
+  async function ensureSignedIn(pending: PendingTrip): Promise<boolean> {
+    const [providers, session] = await Promise.all([
+      fetch("/api/auth/providers").then((response) => response.json() as Promise<Record<string, unknown>>),
+      fetch("/api/auth/session").then((response) => response.json() as Promise<{ user?: unknown }>),
+    ]);
+    if (!providers.google || session.user) return true;
+    sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending));
+    window.location.href = `/sign-in?callbackUrl=${encodeURIComponent("/")}`;
+    return false;
+  }
+
+  async function runPlan(pending: PendingTrip) {
+    setError(null);
+    setStage("locating");
+    try {
+      const signedIn = await ensureSignedIn(pending);
+      if (!signedIn) return;
+
+      const location = await postJson<GeocodeResult>("/api/geocode", { place: pending.place });
+      const resolvedPlace = location.displayName || pending.place;
+
+      setStage("planning");
+      const risk = await postJson<RiskResponse>("/api/risk", {
+        place: resolvedPlace,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        startDate: pending.startDate,
+        endDate: pending.endDate,
+        constraints: pending.constraints,
+      });
+
+      const plan = await postJson<PlanResponse>("/api/plan", {
+        place: resolvedPlace,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        startDate: pending.startDate,
+        endDate: pending.endDate,
+        constraints: pending.constraints,
+        riskVerdict: risk.verdict,
+        riskScore: risk.riskScore,
+      });
+
+      saveTripResult({ risk, plan, location });
+
+      try {
+        setStage("saving");
+        const saved = await postJson<SaveTripApiResult>("/api/trips", {
+          place: resolvedPlace,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          startDate: pending.startDate,
+          endDate: pending.endDate,
+          constraints: pending.constraints,
+          risk,
+          plan,
+        });
+        router.push(`/plans/${saved.id}`);
+      } catch {
+        router.push("/results");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setStage(null);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -68,58 +159,7 @@ export function TripPlannerForm() {
       return;
     }
 
-    setStage("locating");
-
-    try {
-      const location = await postJson<GeocodeResult>("/api/geocode", { place });
-      const resolvedPlace = location.displayName || place;
-
-      setStage("planning");
-      const risk = await postJson<RiskResponse>("/api/risk", {
-        place: resolvedPlace,
-        latitude: location.latitude,
-        longitude: location.longitude,
-        startDate,
-        endDate,
-        constraints,
-      });
-
-      const plan = await postJson<PlanResponse>("/api/plan", {
-        place: resolvedPlace,
-        latitude: location.latitude,
-        longitude: location.longitude,
-        startDate,
-        endDate,
-        constraints,
-        riskVerdict: risk.verdict,
-        riskScore: risk.riskScore,
-      });
-
-      saveTripResult({ risk, plan, location });
-
-      // Persist for a shareable link when Postgres is configured; otherwise
-      // fall back to the session-only /results page (map + insights live there).
-      try {
-        setStage("saving");
-        const saved = await postJson<SaveTripApiResult>("/api/trips", {
-          place: resolvedPlace,
-          latitude: location.latitude,
-          longitude: location.longitude,
-          startDate,
-          endDate,
-          constraints,
-          risk,
-          plan,
-        });
-        router.push(`/plans/${saved.id}`);
-      } catch {
-        router.push("/results");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
-    } finally {
-      setStage(null);
-    }
+    await runPlan({ place, startDate, endDate, constraints });
   }
 
   return (

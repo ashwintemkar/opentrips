@@ -23,7 +23,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     authorized({ auth: session, request }) {
       if (!googleConfigured) return true;
       if (session?.user) return true;
-      if (request.nextUrl.pathname.startsWith("/api/")) {
+      const path = request.nextUrl.pathname;
+      // The form is public. Sign-in is required when they generate a plan.
+      if (
+        path === "/" ||
+        path.startsWith("/sign-in") ||
+        path.startsWith("/api/auth") ||
+        path.startsWith("/api/geocode")
+      ) {
+        return true;
+      }
+      if (path.startsWith("/api/")) {
         return Response.json(
           { error: "Unauthorized", details: "Please sign in first." },
           { status: 401 },
