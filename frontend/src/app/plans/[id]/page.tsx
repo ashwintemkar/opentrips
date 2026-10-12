@@ -3,6 +3,7 @@ import { Suspense } from "react";
 
 import { AreaInsightsSection } from "@/components/insights/AreaInsightsSection";
 import { PageShell } from "@/components/layout/PageShell";
+import { GoOutsideNote } from "@/components/results/GoOutsideNote";
 import { ItineraryCard } from "@/components/results/ItineraryCard";
 import { RiskSummaryCard } from "@/components/results/RiskSummaryCard";
 import { Button } from "@/components/ui/Button";
@@ -52,7 +53,8 @@ async function SavedPlan({ params }: { params: Promise<{ id: string }> }) {
   const plan = trip.planJson as unknown as PlanResponse;
 
   return (
-    <PageShell title={`${trip.place} trip plan`} subtitle={`${trip.startDate} to ${trip.endDate}`}>
+    <PageShell title={trip.place} subtitle="The screen part is almost over.">
+      <GoOutsideNote verdict={risk.verdict} />
       <RiskSummaryCard risk={risk} delay={0.1} />
       <AreaInsightsSection
         location={{

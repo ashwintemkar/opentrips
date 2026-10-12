@@ -43,7 +43,7 @@ export function SiteHeader({ userMenu }: { userMenu?: ReactNode }) {
         </Link>
         <div className="flex items-center gap-3 sm:gap-4">
           <p className="hidden text-sm text-zinc-500 lg:block dark:text-zinc-400">
-            Outdoor trip planning and landslide risk awareness
+            A short plan, then go outside
           </p>
           <ThemeToggle />
           {userMenu}

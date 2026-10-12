@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { AreaInsightsSection } from "@/components/insights/AreaInsightsSection";
 import { PageShell } from "@/components/layout/PageShell";
+import { GoOutsideNote } from "@/components/results/GoOutsideNote";
 import { ItineraryCard } from "@/components/results/ItineraryCard";
 import { RiskSummaryCard } from "@/components/results/RiskSummaryCard";
 import { Button } from "@/components/ui/Button";
@@ -27,9 +28,10 @@ export default function ResultsPage() {
 
   return (
     <PageShell
-      title={`${result.risk.destination} trip plan`}
-      subtitle={`${result.plan.startDate} to ${result.plan.endDate}`}
+      title={`${result.risk.destination}`}
+      subtitle="The screen part is almost over."
     >
+      <GoOutsideNote verdict={result.risk.verdict} />
       <RiskSummaryCard risk={result.risk} delay={0.1} />
       {result.location && (
         <AreaInsightsSection
