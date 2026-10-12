@@ -58,7 +58,7 @@ export function SignInCard({ redirectTo, errorMessage }: SignInCardProps) {
       </div>
 
       <StaggerText
-        text="Welcome to Trip Planner"
+        text="Sign in to continue"
         delay={0.35}
         className="mt-6 text-3xl font-bold tracking-tight text-balance"
       />
@@ -68,7 +68,7 @@ export function SignInCard({ redirectTo, errorMessage }: SignInCardProps) {
         transition={{ duration: 0.45, delay: 0.6 }}
         className="mt-3 text-sm leading-6 text-zinc-600 dark:text-zinc-400"
       >
-        Sign in to check landslide risk and build a personalized outdoor itinerary.
+        Your trip details are saved on this page. Sign in to see the result. Use Google or GitHub.
       </motion.p>
 
       <AnimatePresence>
