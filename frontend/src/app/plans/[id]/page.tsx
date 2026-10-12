@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { AreaInsightsSection } from "@/components/insights/AreaInsightsSection";
 import { PageShell } from "@/components/layout/PageShell";
 import { ItineraryCard } from "@/components/results/ItineraryCard";
 import { RiskSummaryCard } from "@/components/results/RiskSummaryCard";
@@ -53,6 +54,17 @@ async function SavedPlan({ params }: { params: Promise<{ id: string }> }) {
   return (
     <PageShell title={`${trip.place} trip plan`} subtitle={`${trip.startDate} to ${trip.endDate}`}>
       <RiskSummaryCard risk={risk} delay={0.1} />
+      <AreaInsightsSection
+        location={{
+          displayName: trip.place,
+          latitude: trip.latitude,
+          longitude: trip.longitude,
+          boundingBox: null,
+        }}
+        verdict={risk.verdict}
+        startDate={trip.startDate}
+        endDate={trip.endDate}
+      />
       <ItineraryCard plan={plan} delay={0.25} />
       <p className="text-center">
         <Link href="/" className="text-sm font-medium text-[#1d4a32] underline">
