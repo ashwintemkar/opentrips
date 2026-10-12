@@ -40,11 +40,7 @@ services:
         sync: false
       - key: DATABASE_URL
         sync: false
-      - key: AUTH_SECRET
+      - key: NEXT_PUBLIC_SUPABASE_URL
         sync: false
-      - key: AUTH_GOOGLE_ID
-        sync: false
-      - key: AUTH_GOOGLE_SECRET
-        sync: false
-      - key: AUTH_URL
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
         sync: false

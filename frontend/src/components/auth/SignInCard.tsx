@@ -1,12 +1,12 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Backpack, Loader2, MapPinned, Route, ShieldCheck } from "lucide-react";
-import { useFormStatus } from "react-dom";
+import { Backpack, MapPinned, Route, ShieldCheck } from "lucide-react";
+import { useState } from "react";
 
 import { Card } from "@/components/ui/Card";
 import { StaggerText } from "@/components/ui/StaggerText";
-import { signInWithGoogle } from "@/lib/auth-actions";
+import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
 const highlights = [
   { Icon: ShieldCheck, text: "Simulated landslide risk checks for your dates" },
@@ -20,7 +20,23 @@ interface SignInCardProps {
 }
 
 export function SignInCard({ redirectTo, errorMessage }: SignInCardProps) {
-  const signInAction = signInWithGoogle.bind(null, redirectTo);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function signInWith(provider: "google" | "github") {
+    if (!isSupabaseConfigured()) {
+      setMessage("Supabase login is not set on this server yet. You can go back and generate a plan.");
+      return;
+    }
+    const supabase = createSupabaseBrowserClient();
+    const next = redirectTo.startsWith("/") && !redirectTo.startsWith("//") ? redirectTo : "/";
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+      },
+    });
+    if (error) setMessage(error.message);
+  }
 
   return (
     <Card className="w-full max-w-md p-8 text-center sm:p-10" delay={0.1}>
@@ -69,15 +85,25 @@ export function SignInCard({ redirectTo, errorMessage }: SignInCardProps) {
         )}
       </AnimatePresence>
 
-      <motion.form
-        action={signInAction}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, delay: 0.7 }}
-        className="mt-8"
-      >
-        <GoogleButton />
-      </motion.form>
+      {message && (
+        <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{message}</p>
+      )}
+      <div className="mt-8 space-y-3">
+        <button
+          type="button"
+          onClick={() => signInWith("google")}
+          className="flex w-full items-center justify-center rounded-full bg-[#1d4a32] px-5 py-3 text-sm font-semibold text-white"
+        >
+          Continue with Google
+        </button>
+        <button
+          type="button"
+          onClick={() => signInWith("github")}
+          className="flex w-full items-center justify-center rounded-full bg-zinc-900 px-5 py-3 text-sm font-semibold text-white"
+        >
+          Continue with GitHub
+        </button>
+      </div>
 
       <ul className="mt-8 space-y-3 text-left">
         {highlights.map(({ Icon, text }, index) => (
@@ -99,58 +125,9 @@ export function SignInCard({ redirectTo, errorMessage }: SignInCardProps) {
       <p className="mt-8 text-xs leading-5 text-zinc-500 dark:text-zinc-500">
         OpenTrips is an open source project for the Hacktoberfest challenge. It is not a commercial
         app, and we do not sell data. Signing in stores your Google name, email, and profile photo
-        only so a plan can be tied to you. We keep your last 3 plans. Download a plan if you want
+        or your GitHub name and email, only so a plan can be tied to you. We keep your last 3 plans. Download a plan if you want
         to keep it, because older ones are deleted. The challenge is open to people 18 and older.
       </p>
     </Card>
-  );
-}
-
-function GoogleButton() {
-  const { pending } = useFormStatus();
-
-  return (
-    <motion.button
-      type="submit"
-      disabled={pending}
-      whileHover={pending ? undefined : { y: -2, scale: 1.01 }}
-      whileTap={pending ? undefined : { scale: 0.98 }}
-      transition={{ type: "spring", stiffness: 350, damping: 22 }}
-      className="group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-xl border border-black/10 bg-white px-5 py-3 text-sm font-semibold text-zinc-800 shadow-sm transition-shadow hover:shadow-lg hover:shadow-emerald-500/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 disabled:cursor-wait disabled:opacity-70 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:shadow-emerald-400/10"
-    >
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-emerald-500/10 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-full"
-      />
-      {pending ? (
-        <Loader2 className="relative h-5 w-5 animate-spin" aria-hidden="true" />
-      ) : (
-        <GoogleLogo className="relative h-5 w-5" />
-      )}
-      <span className="relative">{pending ? "Redirecting to Google…" : "Sign in with Google"}</span>
-    </motion.button>
-  );
-}
-
-function GoogleLogo({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 48 48" className={className} aria-hidden="true">
-      <path
-        fill="#FFC107"
-        d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"
-      />
-      <path
-        fill="#FF3D00"
-        d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"
-      />
-      <path
-        fill="#4CAF50"
-        d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"
-      />
-      <path
-        fill="#1976D2"
-        d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"
-      />
-    </svg>
   );
 }

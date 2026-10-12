@@ -2,8 +2,8 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 
-import { auth } from "@/auth";
 import { SignInCard } from "@/components/auth/SignInCard";
+import { getVerifiedUser } from "@/lib/supabase/server";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -35,14 +35,15 @@ export default function SignInPage({ searchParams }: { searchParams: SearchParam
 
 async function SignInContent({ searchParams }: { searchParams: SearchParams }) {
   await connection();
-  const [{ callbackUrl, error }, session] = await Promise.all([searchParams, auth()]);
-  const redirectTo = toLocalPath(callbackUrl);
+  const params = await searchParams;
+  const redirectTo = toLocalPath(params.next ?? params.callbackUrl);
+  const user = await getVerifiedUser();
 
-  if (session?.user) redirect(redirectTo);
+  if (user) redirect(redirectTo);
 
   const errorMessage =
-    typeof error === "string"
-      ? (errorMessages[error] ?? "Something went wrong while signing in. Please try again.")
+    typeof params.error === "string"
+      ? (errorMessages[params.error] ?? "Something went wrong while signing in. Please try again.")
       : undefined;
 
   return <SignInCard redirectTo={redirectTo} errorMessage={errorMessage} />;

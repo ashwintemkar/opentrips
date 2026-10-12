@@ -5,6 +5,7 @@ import { ArrowRight, CalendarDays, MapPin, NotebookText } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
+import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { FormField } from "@/components/ui/FormField";
 import { TextArea } from "@/components/ui/TextArea";
@@ -36,29 +37,9 @@ interface PendingTrip {
   constraints: string;
 }
 
-async function goToGoogleSignIn(pending: PendingTrip) {
+function goToSignIn(pending: PendingTrip) {
   sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending));
-  const csrfResponse = await fetch("/api/auth/csrf");
-  const { csrfToken } = (await csrfResponse.json()) as { csrfToken?: string };
-  if (!csrfToken) {
-    window.location.href = "/sign-in?callbackUrl=/";
-    return;
-  }
-  const form = document.createElement("form");
-  form.method = "POST";
-  form.action = "/api/auth/signin/google";
-  for (const [name, value] of [
-    ["csrfToken", csrfToken],
-    ["callbackUrl", "/"],
-  ] as const) {
-    const input = document.createElement("input");
-    input.type = "hidden";
-    input.name = name;
-    input.value = value;
-    form.append(input);
-  }
-  document.body.append(form);
-  form.submit();
+  window.location.href = "/sign-in?next=/";
 }
 
 async function postJson<TResponse>(url: string, body: unknown, pending?: PendingTrip): Promise<TResponse> {
@@ -71,8 +52,8 @@ async function postJson<TResponse>(url: string, body: unknown, pending?: Pending
   const data = (await response.json()) as TResponse | ApiErrorResponse;
 
   if (response.status === 401 && pending) {
-    await goToGoogleSignIn(pending);
-    throw new Error("Redirecting to Google sign-in.");
+    goToSignIn(pending);
+    throw new Error("Redirecting to sign-in.");
   }
 
   if (!response.ok) {
@@ -109,16 +90,11 @@ export function TripPlannerForm() {
   }, []);
 
   async function ensureSignedIn(pending: PendingTrip): Promise<boolean> {
-    const providers = await fetch("/api/auth/providers").then(
-      (response) => response.json() as Promise<Record<string, unknown>>,
-    );
-    if (!providers.google) return true;
-
-    const session = await fetch("/api/auth/session").then(
-      (response) => response.json() as Promise<{ user?: { email?: string } }>,
-    );
-    if (session?.user?.email) return true;
-    await goToGoogleSignIn(pending);
+    if (!isSupabaseConfigured()) return true;
+    const supabase = createSupabaseBrowserClient();
+    const { data } = await supabase.auth.getSession();
+    if (data.session?.user) return true;
+    goToSignIn(pending);
     return false;
   }
 

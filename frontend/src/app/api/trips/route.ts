@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { getVerifiedUser } from "@/lib/supabase/server";
 import type { ApiErrorResponse } from "@/types/api";
 import type { PlanResponse } from "@/types/plan";
 import type { RiskResponse } from "@/types/risk";
@@ -71,22 +71,27 @@ export async function POST(request: Request) {
   }
 
   try {
-    const session = await auth();
-    const email = session?.user?.email;
-    const user = email
-      ? await prisma.user.upsert({
-          where: { email },
-          update: {
-            name: session.user?.name ?? null,
-            image: session.user?.image ?? null,
-          },
-          create: {
-            email,
-            name: session.user?.name ?? null,
-            image: session.user?.image ?? null,
-          },
-        })
-      : null;
+    const account = await getVerifiedUser();
+    const email = account?.email ?? null;
+    const displayName =
+      (account?.user_metadata?.full_name as string | undefined) ??
+      (account?.user_metadata?.name as string | undefined) ??
+      null;
+    const image = (account?.user_metadata?.avatar_url as string | undefined) ?? null;
+    let user: { id: string } | null = null;
+    if (account && email) {
+      const existing = await prisma.user.findFirst({
+        where: { OR: [{ supabaseId: account.id }, { email }] },
+      });
+      user = existing
+        ? await prisma.user.update({
+            where: { id: existing.id },
+            data: { supabaseId: account.id, email, name: displayName, image },
+          })
+        : await prisma.user.create({
+            data: { supabaseId: account.id, email, name: displayName, image },
+          });
+    }
 
     const trip = await prisma.trip.create({
       data: {
