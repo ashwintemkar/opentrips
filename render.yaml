@@ -29,7 +29,7 @@ services:
     # so a first deploy without Supabase wired yet still builds.
     # Do not run prisma db push here. The transaction pooler (port 6543)
     # hangs on schema changes. Push the schema once with the direct database URL.
-    buildCommand: corepack enable && pnpm install && pnpm build
+    buildCommand: corepack enable && pnpm install && pnpm exec prisma generate && pnpm build
     startCommand: pnpm start
     envVars:
       - key: NODE_VERSION
