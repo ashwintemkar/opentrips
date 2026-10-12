@@ -36,7 +36,32 @@ interface PendingTrip {
   constraints: string;
 }
 
-async function postJson<TResponse>(url: string, body: unknown): Promise<TResponse> {
+async function goToGoogleSignIn(pending: PendingTrip) {
+  sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending));
+  const csrfResponse = await fetch("/api/auth/csrf");
+  const { csrfToken } = (await csrfResponse.json()) as { csrfToken?: string };
+  if (!csrfToken) {
+    window.location.href = "/sign-in?callbackUrl=/";
+    return;
+  }
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = "/api/auth/signin/google";
+  for (const [name, value] of [
+    ["csrfToken", csrfToken],
+    ["callbackUrl", "/"],
+  ] as const) {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = name;
+    input.value = value;
+    form.append(input);
+  }
+  document.body.append(form);
+  form.submit();
+}
+
+async function postJson<TResponse>(url: string, body: unknown, pending?: PendingTrip): Promise<TResponse> {
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -44,6 +69,11 @@ async function postJson<TResponse>(url: string, body: unknown): Promise<TRespons
   });
 
   const data = (await response.json()) as TResponse | ApiErrorResponse;
+
+  if (response.status === 401 && pending) {
+    await goToGoogleSignIn(pending);
+    throw new Error("Redirecting to Google sign-in.");
+  }
 
   if (!response.ok) {
     const errorData = data as ApiErrorResponse;
@@ -79,13 +109,11 @@ export function TripPlannerForm() {
   }, []);
 
   async function ensureSignedIn(pending: PendingTrip): Promise<boolean> {
-    const [providers, session] = await Promise.all([
-      fetch("/api/auth/providers").then((response) => response.json() as Promise<Record<string, unknown>>),
-      fetch("/api/auth/session").then((response) => response.json() as Promise<{ user?: unknown }>),
-    ]);
-    if (!providers.google || session.user) return true;
-    sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending));
-    window.location.href = `/sign-in?callbackUrl=${encodeURIComponent("/")}`;
+    const session = await fetch("/api/auth/session").then(
+      (response) => response.json() as Promise<{ user?: { email?: string } }>,
+    );
+    if (session?.user?.email) return true;
+    await goToGoogleSignIn(pending);
     return false;
   }
 
@@ -96,49 +124,62 @@ export function TripPlannerForm() {
       const signedIn = await ensureSignedIn(pending);
       if (!signedIn) return;
 
-      const location = await postJson<GeocodeResult>("/api/geocode", { place: pending.place });
+      const location = await postJson<GeocodeResult>("/api/geocode", { place: pending.place }, pending);
       const resolvedPlace = location.displayName || pending.place;
 
       setStage("planning");
-      const risk = await postJson<RiskResponse>("/api/risk", {
-        place: resolvedPlace,
-        latitude: location.latitude,
-        longitude: location.longitude,
-        startDate: pending.startDate,
-        endDate: pending.endDate,
-        constraints: pending.constraints,
-      });
-
-      const plan = await postJson<PlanResponse>("/api/plan", {
-        place: resolvedPlace,
-        latitude: location.latitude,
-        longitude: location.longitude,
-        startDate: pending.startDate,
-        endDate: pending.endDate,
-        constraints: pending.constraints,
-        riskVerdict: risk.verdict,
-        riskScore: risk.riskScore,
-      });
-
-      saveTripResult({ risk, plan, location });
-
-      try {
-        setStage("saving");
-        const saved = await postJson<SaveTripApiResult>("/api/trips", {
+      const risk = await postJson<RiskResponse>(
+        "/api/risk",
+        {
           place: resolvedPlace,
           latitude: location.latitude,
           longitude: location.longitude,
           startDate: pending.startDate,
           endDate: pending.endDate,
           constraints: pending.constraints,
-          risk,
-          plan,
-        });
+        },
+        pending,
+      );
+
+      const plan = await postJson<PlanResponse>(
+        "/api/plan",
+        {
+          place: resolvedPlace,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          startDate: pending.startDate,
+          endDate: pending.endDate,
+          constraints: pending.constraints,
+          riskVerdict: risk.verdict,
+          riskScore: risk.riskScore,
+        },
+        pending,
+      );
+
+      saveTripResult({ risk, plan, location });
+
+      try {
+        setStage("saving");
+        const saved = await postJson<SaveTripApiResult>(
+          "/api/trips",
+          {
+            place: resolvedPlace,
+            latitude: location.latitude,
+            longitude: location.longitude,
+            startDate: pending.startDate,
+            endDate: pending.endDate,
+            constraints: pending.constraints,
+            risk,
+            plan,
+          },
+          pending,
+        );
         router.push(`/plans/${saved.id}`);
       } catch {
         router.push("/results");
       }
     } catch (err) {
+      if (err instanceof Error && err.message.startsWith("Redirecting")) return;
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setStage(null);
