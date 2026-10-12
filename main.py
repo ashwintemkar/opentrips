@@ -48,16 +48,20 @@ class RiskReq(BaseModel):
 
 @app.post("/risk")
 def risk(req: RiskReq):
-    r = requests.get(
-        "https://api.open-meteo.com/v1/forecast",
-        params={
-            "latitude": req.lat, "longitude": req.lon,
-            "start_date": req.start_date, "end_date": req.end_date,
-            "daily": "precipitation_sum", "timezone": "UTC",
-        },
-        timeout=20,
-    ).json()
-    precip = [p for p in r.get("daily", {}).get("precipitation_sum", []) if p is not None]
+    try:
+        r = requests.get(
+            "https://api.open-meteo.com/v1/forecast",
+            params={
+                "latitude": req.lat, "longitude": req.lon,
+                "start_date": req.start_date, "end_date": req.end_date,
+                "daily": "precipitation_sum", "timezone": "UTC",
+            },
+            timeout=20,
+        ).json()
+    except requests.RequestException:
+        r = {}
+    daily = r.get("daily") or {}
+    precip = [p for p in (daily.get("precipitation_sum") or []) if p is not None]
     rain_total = sum(precip) if precip else 0.0
 
     rain_1d = precip[0] if precip else 0

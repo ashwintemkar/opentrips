@@ -53,8 +53,9 @@ export async function POST(request: Request) {
       );
     }
 
+    const details = error instanceof Error ? error.message : undefined;
     return NextResponse.json<ApiErrorResponse>(
-      { error: "Failed to generate risk assessment." },
+      { error: "Failed to generate risk assessment.", details },
       { status: 502 },
     );
   }

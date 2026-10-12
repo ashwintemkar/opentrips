@@ -86,13 +86,13 @@ async function fetchRealRisk(baseUrl: string, request: RiskRequest): Promise<Ris
     riskScore: backend.risk,
     verdict,
     explanation:
-      `Open-Meteo forecasts ${backend.rain_14d.toFixed(1)} mm of rain over this window. ` +
+      `Open-Meteo forecasts ${(backend.rain_14d ?? backend.rain_mm_forecast ?? 0).toFixed(1)} mm of rain over this window. ` +
       `TabPFN, trained on real NASA landslide records, puts landslide risk at ${riskPercent}% (${verdict}).`,
     rainfallFeatures: {
-      rain1dMm: backend.rain_1d,
-      rain3dMm: backend.rain_3d,
-      rain7dMm: backend.rain_7d,
-      rain14dMm: backend.rain_14d,
+      rain1dMm: backend.rain_1d ?? 0,
+      rain3dMm: backend.rain_3d ?? 0,
+      rain7dMm: backend.rain_7d ?? 0,
+      rain14dMm: backend.rain_14d ?? backend.rain_mm_forecast ?? 0,
     },
     modelName: "TabPFN (Prior Labs), trained on the NASA Global Landslide Catalog + Open-Meteo rainfall history",
     modelMetrics: {
