@@ -50,7 +50,7 @@ export function Button({
         />
       )}
       {isLoading && <Loader2 className="relative h-4 w-4 animate-spin" aria-hidden="true" />}
-      <span className="relative">{children}</span>
+      <span className="relative inline-flex items-center justify-center gap-2">{children}</span>
     </motion.button>
   );
 }
