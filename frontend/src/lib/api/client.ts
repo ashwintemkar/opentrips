@@ -72,7 +72,8 @@ async function postJson<TResponse>(baseUrl: string, path: string, body: unknown)
             : `AI backend request to ${path} failed with status ${status}`,
         );
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("did not start")) throw error;
       status = 502;
     }
     attempt += 1;

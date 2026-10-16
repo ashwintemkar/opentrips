@@ -16,10 +16,11 @@ import type { GeocodeResult } from "@/types/geo";
 import type { PlanResponse } from "@/types/plan";
 import type { RiskResponse } from "@/types/risk";
 
-type SubmitStage = "locating" | "planning" | "saving";
+type SubmitStage = "locating" | "waking" | "planning" | "saving";
 
 const stageLabels: Record<SubmitStage, string> = {
   locating: "Finding your destination…",
+  waking: "Waking the model server. Stay on this page.",
   planning: "Assessing risk and planning…",
   saving: "Saving your plan…",
 };
@@ -78,6 +79,10 @@ export function TripPlannerForm() {
   const resumeStarted = useRef(false);
 
   useEffect(() => {
+    void fetch("/api/wake");
+  }, []);
+
+  useEffect(() => {
     if (resumeStarted.current) return;
     const raw = sessionStorage.getItem(PENDING_KEY);
     if (!raw) return;
@@ -101,6 +106,27 @@ export function TripPlannerForm() {
     return false;
   }
 
+  function isAsleep(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : "";
+    return message.includes("asleep") || message.includes("502") || message.includes("503");
+  }
+
+  async function postUntilAwake<TResponse>(url: string, body: unknown, pending: PendingTrip): Promise<TResponse> {
+    const started = Date.now();
+    let lastError: Error | null = null;
+    while (Date.now() - started < 180_000) {
+      try {
+        return await postJson<TResponse>(url, body, pending);
+      } catch (error) {
+        if (!isAsleep(error)) throw error;
+        lastError = error instanceof Error ? error : new Error("The model server was asleep.");
+        setStage("waking");
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+      }
+    }
+    throw lastError ?? new Error("The model server was asleep and did not finish waking. Stay on this page and press the button once more.");
+  }
+
   async function runPlan(pending: PendingTrip) {
     setError(null);
     setStage("locating");
@@ -112,7 +138,7 @@ export function TripPlannerForm() {
       const resolvedPlace = location.displayName || pending.place;
 
       setStage("planning");
-      const risk = await postJson<RiskResponse>(
+      const risk = await postUntilAwake<RiskResponse>(
         "/api/risk",
         {
           place: resolvedPlace,
@@ -125,7 +151,7 @@ export function TripPlannerForm() {
         pending,
       );
 
-      const plan = await postJson<PlanResponse>(
+      const plan = await postUntilAwake<PlanResponse>(
         "/api/plan",
         {
           place: resolvedPlace,
